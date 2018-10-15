@@ -7,7 +7,7 @@
 using namespace std;
 
 #define SIZEM 2000
-#define TILE_SIZE 8
+#define TILE_SIZE 32
 
 void fillMatrices(float * ip){
 
@@ -79,14 +79,6 @@ __global__ void multMatrixTile(float *MatA, float *MatB, float *MatC, int nx, in
     __shared__ float tileA[TILE_SIZE][TILE_SIZE];
     __shared__ float tileB[TILE_SIZE][TILE_SIZE];
 
-    for(int a = 0; a < TILE_SIZE;a++)
-  {
-    for(int b = 0; b < TILE_SIZE; b++)
-    {
-      tileA[a][b] = 0.0;
-      tileB[a][b] = 0.0;
-    }
-}
 
     float auxiliar = 0;
 
@@ -191,9 +183,7 @@ int main (int argc, char ** argv){
 
     auto average = 0;
     auto average2 = 0;
-
-    // CPU 
-    Mult(h_A, h_B, h_CPU,nx, nx);
+    auto average3 = 0;
 
     // GPU 
     auto start_cpu =  chrono::high_resolution_clock::now();
@@ -206,12 +196,20 @@ int main (int argc, char ** argv){
 
     // GPU TILES
     start_cpu =  chrono::high_resolution_clock::now();
-    multMatrix<<<grid, block>>>(d_MatA, d_MatB, d_MatC, nx, ny);
+    multMatrixTile<<<grid, block>>>(d_MatA, d_MatB, d_MatC, nx, ny);
     SAFE_CALL(cudaDeviceSynchronize(), "Error executing kernel");
     end_cpu =  chrono::high_resolution_clock::now();
     
     duration_ms = end_cpu - start_cpu;
     average2 = duration_ms.count();
+
+    // CPU
+    /*start_cpu =  chrono::high_resolution_clock::now();
+    Mult(h_A, h_B, h_CPU,nx, nx);
+    end_cpu =  chrono::high_resolution_clock::now();
+    
+    duration_ms = end_cpu - start_cpu;
+    average3 = duration_ms.count();*/
  
 
     printf("multMatrixGPU <<<(%d,%d), (%d,%d)>>> elapsed %d ms\n", grid.x,
@@ -221,6 +219,8 @@ int main (int argc, char ** argv){
     printf("multMatrixTile <<<(%d,%d), (%d,%d)>>> elapsed %d ms\n", grid.x,
            grid.y,
            block.x, block.y, average2);
+
+    //printf("Mult in CPU elapsed %d ms \n", average3);
 
     // SAFE_CALL kernel error
     SAFE_CALL(cudaGetLastError(), "Error with last error");
@@ -236,6 +236,7 @@ int main (int argc, char ** argv){
     SAFE_CALL(cudaFree(d_MatA), "Error freeing memory");
     SAFE_CALL(cudaFree(d_MatB), "Error freeing memory");
     SAFE_CALL(cudaFree(d_MatC), "Error freeing memory");
+    SAFE_CALL(cudaFree(d_MatTile), "Error freeing memory");
 
     // free host memory
     free(h_A);

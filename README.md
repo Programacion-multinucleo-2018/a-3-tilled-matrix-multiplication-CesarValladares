@@ -18,3 +18,51 @@ Rubric:
 3. GPU code is initialized correctly, and the device memory is deallocated.
 4. Implement matrix multiplication using shared memory and tiling.
 5. Report the average processing time and speedup for the different tile sizes.
+
+
+REPORT:
+
+César Armando Valladares Martínez
+A01023506
+
+Tiempos de los codigos con una matriz de 2000 X 2000
+
+La GPU es:
+	GeForce GTX 1050 Ti
+
+Tiempo en CPU:
+		Mult in CPU elapsed 106412 ms
+
+USANDO TILES de 8X8:
+
+	Tiempo en GPU sin Tiling:
+		multMatrixGPU <<<(250,250), (8,8)>>> elapsed 270 ms
+
+	Tiempo de GPU con Tiling: 
+		multMatrixTile <<<(250,250), (8,8)>>> elapsed 103 ms
+
+	SPEEDUP GPU/GPUTILING: 
+		270/103 = 2.6214 
+		
+
+USANDO TILES de 16X16:
+
+	Tiempo en GPU sin TIling:
+		multMatrixGPU <<<(125,125), (16,16)>>> elapsed 435 ms
+
+	Tiempo en GPU con TIling: 
+		multMatrixTile <<<(125,125), (16,16)>>> elapsed 47 ms
+	
+	SPEEDUP GPU/GPUTILING:
+		435/47 = 9.2553
+
+USANDO TILES de 32X32 
+		
+	Tiempo en GPU sin TIling:
+		multMatrixGPU <<<(63,63), (32,32)>>> elapsed 850 ms
+
+	Tiempo en GPU con TIling: 
+		multMatrixTile <<<(63,63), (32,32)>>> elapsed 47 ms
+
+	SPEEDUP GPU/GPUTILING:
+		850/47 = 18.085106
