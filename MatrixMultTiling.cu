@@ -6,7 +6,7 @@
 
 using namespace std;
 
-#define SIZEM 100
+#define SIZEM 2000
 #define TILE_SIZE 8
 
 void fillMatrices(float * ip){
@@ -14,8 +14,8 @@ void fillMatrices(float * ip){
     srand(time(NULL));
 
     for (int i = 0; i < SIZEM*SIZEM; i++){
-        //ip[i] = (float)rand()/(RAND_MAX/ 10.0f);
-        ip[i] = i;
+        ip[i] = (float)rand()/(RAND_MAX/ 10.0f);
+        //ip[i] = i;
     }    
 }
 
@@ -157,11 +157,12 @@ int main (int argc, char ** argv){
     printf("Matrix size: nx %d ny %d\n", nx, ny);
 
     // Apartar memoria 
-    float *h_A, *h_B, *h_C, *h_CPU;
+    float *h_A, *h_B, *h_C, *h_CPU, *h_GPUTiles;
     h_A = (float *)malloc(nBytes);
     h_B = (float *)malloc(nBytes);
     h_C = (float *)malloc(nBytes);
     h_CPU = (float *)malloc(nBytes);
+    h_GPUTiles =(float *) malloc(nBytes);
 
 
     // Inicializar matrices
@@ -169,13 +170,14 @@ int main (int argc, char ** argv){
     fillMatrices(h_B);
 
     memset(h_C, 0.0, nBytes);
-    memset(h_CPU, 0, nBytes);
+    memset(h_CPU, 0.0, nBytes);
 
     // Apartar memoria en la GPU
-    float *d_MatA, *d_MatB, *d_MatC;
+    float *d_MatA, *d_MatB, *d_MatC, *d_MatTile;
     SAFE_CALL(cudaMalloc((void **)&d_MatA, nBytes), "Error allocating d_MatA");
     SAFE_CALL(cudaMalloc((void **)&d_MatB, nBytes), "Error allocating d_MatB");
     SAFE_CALL(cudaMalloc((void **)&d_MatC, nBytes), "Error allocating d_MatC");
+    SAFE_CALL(cudaMalloc((void **)&d_MatTile, nBytes), "Error allocating d_MatTile");
 
     // Transferir informacion a la GPU
     SAFE_CALL(cudaMemcpy(d_MatA, h_A, nBytes, cudaMemcpyHostToDevice), "Error copying d_MatA");
@@ -188,32 +190,44 @@ int main (int argc, char ** argv){
     dim3 grid((nx + block.x - 1) / block.x, (ny + block.y - 1) / block.y);
 
     auto average = 0;
+    auto average2 = 0;
 
     // CPU 
     Mult(h_A, h_B, h_CPU,nx, nx);
 
     // GPU 
     auto start_cpu =  chrono::high_resolution_clock::now();
-    multMatrix<<<grid, block>>>(d_MatA, d_MatB, d_MatC, nx, ny);
+    multMatrix<<<grid, block>>>(d_MatA, d_MatB, d_MatTile, nx, ny);
     SAFE_CALL(cudaDeviceSynchronize(), "Error executing kernel");
     auto end_cpu =  chrono::high_resolution_clock::now();
-    
+
     chrono::duration<float, std::milli> duration_ms = end_cpu - start_cpu;
     average = duration_ms.count();
+
+    // GPU TILES
+    start_cpu =  chrono::high_resolution_clock::now();
+    multMatrix<<<grid, block>>>(d_MatA, d_MatB, d_MatC, nx, ny);
+    SAFE_CALL(cudaDeviceSynchronize(), "Error executing kernel");
+    end_cpu =  chrono::high_resolution_clock::now();
+    
+    duration_ms = end_cpu - start_cpu;
+    average2 = duration_ms.count();
  
+
+    printf("multMatrixGPU <<<(%d,%d), (%d,%d)>>> elapsed %d ms\n", grid.x,
+           grid.y,
+           block.x, block.y, average);
 
     printf("multMatrixTile <<<(%d,%d), (%d,%d)>>> elapsed %d ms\n", grid.x,
            grid.y,
-           block.x, block.y, average);
+           block.x, block.y, average2);
 
     // SAFE_CALL kernel error
     SAFE_CALL(cudaGetLastError(), "Error with last error");
 
     // copy kernel result back to host side
     SAFE_CALL(cudaMemcpy(h_C, d_MatC, nBytes, cudaMemcpyDeviceToHost), "Error copying d_MatC");
-
-    printMatrix(h_C, nxy);
-    printMatrix(h_CPU, nxy);
+    SAFE_CALL(cudaMemcpy(h_GPUTiles, d_MatTile, nBytes, cudaMemcpyDeviceToHost), "Error copying d_MatTile");
 
     // Compare CPU and GPU results
     checkResult(h_C, h_CPU);
