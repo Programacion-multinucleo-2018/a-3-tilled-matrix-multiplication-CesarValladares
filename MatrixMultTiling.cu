@@ -55,6 +55,7 @@ __global__ void multMatrix(float *MatA, float *MatB, float *MatC, int nx, int ny
         }
     }
 
+    if(idx < nx*ny)
     MatC[idx] = auxiliar;
 }
 
